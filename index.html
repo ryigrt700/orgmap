@@ -96,7 +96,7 @@ details textarea{width:100%;margin-top:8px;font:13px ui-monospace,monospace;dire
 <select id="tbStat" aria-label="الحالة"><option>جديدة</option><option>قيد التنفيذ</option><option>مكتملة</option></select>
 </div>
 <div class="r">
-<input type="date" id="tbDate" aria-label="التاريخ">
+<input type="date" id="tbDate" lang="en" aria-label="التاريخ">
 <button type="button" id="tbUp" aria-label="تقديم">↑</button>
 <button type="button" id="tbDn" aria-label="تأخير">↓</button>
 <button type="button" id="tbDel" class="del">حذف</button>
@@ -125,7 +125,7 @@ let dirty=false,hist=[],mode='normal',sel=null,rx=-0.3,ry=0.55,zoom=1,pan=[0,0],
 const SEED=JSON.stringify(S);let canStore=true;
 try{const d=JSON.parse(localStorage.getItem('orgmap-data')||'null');if(d&&Array.isArray(d.nodes)&&d.nodes.some(n=>n.parent===null))S=d;}catch(e){canStore=false;}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const css=v=>getComputedStyle(document.body).getPropertyValue(v).trim()||'#888';
+const css=v=>{let p=document.getElementById('cprobe');if(!p){p=document.createElement('span');p.id='cprobe';p.hidden=true;document.body.appendChild(p);}p.style.color='var('+v+')';return getComputedStyle(p).color||'#888';};
 const rootNode=()=>S.nodes.find(n=>n.parent===null);
 function buildTree(){
   T={};S.nodes.forEach(n=>T[n.id]={n,ch:[],par:null,depth:0});
