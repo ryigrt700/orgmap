@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>خريطة المسارات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: أداة عمل هادئة، كل شيء على الرسمة
+   IDEA: خريطة مترو / لوحة دائرة إلكترونية للمؤسسة
+   PICTURE: الخريطة الثلاثية تملأ الشاشة، والتحرير يظهر فوق المحطة نفسها
+   COLOUR and TYPE: أرضية بيضاء، حبر داكن، ألوان خطوط المترو للإدارات؛ IBM Plex Sans Arabic
+   LAYOUT: شريط علوي رفيع، ثم الرسمة بعرض الشاشة كاملة */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0f1214);--ink:light-dark(#15181b,#e8eaec);--muted:light-dark(#5d646b,#9aa2a9);--line:light-dark(#e2e5e8,#2a3035);--stage:light-dark(#fafbfb,#12161a);--node:light-dark(#ffffff,#0f1214);--danger:light-dark(#c0392b,#f08070);--accent:light-dark(#0f6e56,#5dcaa5);--pop:light-dark(#ffffff,#1c2125)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans Arabic",system-ui,sans-serif;overflow-x:clip}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px max(3vw,14px);border-bottom:1px solid var(--line)}
+h1{font-size:clamp(20px,2.6vw,28px);line-height:1.1;margin:0;font-weight:600;flex:1 1 180px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+button,select,input{font:inherit;font-size:15px;min-height:38px;padding:4px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+button{cursor:pointer}button:hover{border-color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+#status{font-size:13px;color:var(--muted)}
+.fig{position:relative;height:max(500px,calc(100vh - 64px));background:var(--stage);touch-action:none;cursor:grab;overflow:hidden}
+.fig>canvas{position:absolute;inset:0;width:100%;height:100%}
+.hint{position:absolute;bottom:10px;inset-inline-start:12px;inset-inline-end:12px;font-size:13px;color:var(--muted);pointer-events:none}
+.legend{position:absolute;top:10px;inset-inline-start:12px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);pointer-events:none}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid currentColor;vertical-align:-1px;margin-inline-end:4px}
+.tb{position:absolute;bottom:38px;left:50%;transform:translateX(-50%);display:none;flex-direction:column;gap:6px;padding:8px;background:var(--pop);border:1px solid var(--line);border-radius:12px;cursor:default;width:max-content;max-width:calc(100% - 24px)}
+.tb .r{justify-content:center}
+.tb .p{font-size:13px;color:var(--muted);line-height:1.4}
+.tb .code{font-family:ui-monospace,monospace;direction:ltr;unicode-bidi:embed;color:var(--accent)}
+.tb .r{display:flex;flex-wrap:wrap;gap:6px}
+.tb button,.tb select,.tb input{min-height:34px;font-size:14px;padding:2px 8px;border-radius:8px}
+.tb .del{color:var(--danger)}
+.tb input[type=date]{direction:ltr;text-align:right}
+.shp[hidden],.sw[hidden]{display:none}
+.tog button{display:inline-flex;align-items:center;gap:6px}.tog button[aria-expanded=true]{border-color:var(--ink)}
+.tog .dt{width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid var(--line)}
+.shp button{min-width:44px;font-size:14px}.shp button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.sw{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center}
+.sw button{width:26px;height:26px;min-height:26px;padding:0;border-radius:50%;border:2px solid var(--pop);outline:1px solid var(--line)}
+.sw button[aria-pressed=true]{outline:2px solid var(--ink)}
+.sw .auto{width:auto;border-radius:13px;padding:0 8px;font-size:12px;background:var(--pop);border:1px solid var(--line);outline:0}
+.sw input[type=color]{width:26px;height:26px;min-height:26px;padding:0;border:1px solid var(--line);border-radius:50%;background:none;cursor:pointer}
+.ctl{position:absolute;top:44px;inset-inline-end:12px;display:grid;grid-template-columns:repeat(3,36px);gap:4px;padding:6px;background:var(--pop);border:1px solid var(--line);border-radius:12px;cursor:default;user-select:none}
+.ctl button{min-height:36px;height:36px;padding:0;font-size:17px;line-height:1;border-radius:8px;touch-action:none}
+.ctl .lab{grid-column:1/-1;font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
+#nameEd{position:absolute;top:0;left:0;display:none;width:200px;font-size:16px;font-weight:500;padding:4px 10px;border:2px solid var(--accent);background:var(--pop);border-radius:8px}
+details{padding:12px max(3vw,14px)}details summary{cursor:pointer;font-size:14px;color:var(--muted)}
+details textarea{width:100%;margin-top:8px;font:13px ui-monospace,monospace;direction:ltr;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+@media(max-width:600px){header{gap:8px}.seg button{padding:4px 8px;font-size:14px}.fig{height:max(460px,calc(100vh - 120px))}}
+</style>
+</head>
+<body>
+<header>
+<h1 id="ttl">خريطة المسارات</h1>
+<div class="seg" role="group" aria-label="طريقة العرض">
+<button data-mode="normal" aria-pressed="true">المسارات</button>
+<button data-mode="layers" aria-pressed="false">طبقات الإدارات</button>
+<button data-mode="time" aria-pressed="false">الزمن</button>
+</div>
+<button id="undo">تراجع</button>
+<button id="reset">توسيط</button>
+<button id="dl" class="pri">حفظ نسخة</button>
+<button id="openBtn">فتح نسخة</button><input type="file" id="file" accept=".json,application/json" hidden>
+<button id="newMap">خريطة جديدة</button>
+<button id="vrBtn">دخول VR</button>
+<span id="status"></span>
+</header>
+<div class="fig" id="fig">
+<canvas id="cv" aria-label="الخريطة ثلاثية الأبعاد"></canvas>
+<div class="legend"><span><i style="background:currentColor"></i>مكتملة</span><span><i style="border-style:dashed"></i>قيد التنفيذ</span><span><i></i>جديدة</span><span style="color:var(--danger)"><i></i>متأخرة</span></div>
+<div class="hint">اضغط محطة لتظهر أزرار + حولها، اضغط + في الاتجاه الذي تريده لإضافة فرع. اضغط المحطة مرة ثانية لكتابة اسمها. اسحب للتدوير، Shift مع السحب للتحريك، العجلة للتكبير.</div>
+<div class="ctl" id="ctl" aria-label="التحكم في العرض">
+<div class="lab">تحريك</div>
+<span></span><button type="button" data-act="pu" aria-label="تحريك لأعلى" title="أعلى">↑</button><span></span>
+<button type="button" data-act="pr" aria-label="تحريك لليمين" title="يمين">→</button><button type="button" id="ctlC" aria-label="توسيط" title="توسيط">◎</button><button type="button" data-act="pl" aria-label="تحريك لليسار" title="يسار">←</button>
+<span></span><button type="button" data-act="pd" aria-label="تحريك لأسفل" title="أسفل">↓</button><span></span>
+<div class="lab">تكبير</div>
+<button type="button" data-act="zi" aria-label="تكبير" title="تكبير">+</button><span></span><button type="button" data-act="zo" aria-label="تصغير" title="تصغير">−</button>
+<div class="lab">دوران</div>
+<button type="button" data-act="rr" aria-label="دوران لليمين" title="دوران يمين">↻</button><button type="button" data-act="ru" aria-label="إمالة لأعلى" title="إمالة لأعلى">⤒</button><button type="button" data-act="rl" aria-label="دوران لليسار" title="دوران يسار">↺</button>
+<span></span><button type="button" data-act="rd" aria-label="إمالة لأسفل" title="إمالة لأسفل">⤓</button><span></span>
+</div>
+<div class="tb" id="tb">
+<div class="p" id="tbPath"></div>
+<div class="r">
+<button type="button" id="tbName">الاسم</button>
+<select id="tbType" aria-label="النوع"><option>إدارة</option><option>قسم</option><option>موظف</option><option>مهمة</option><option>خطوة</option></select>
+<select id="tbStat" aria-label="الحالة"><option>جديدة</option><option>قيد التنفيذ</option><option>مكتملة</option></select>
+</div>
+<div class="r">
+<input type="date" id="tbDate" aria-label="التاريخ">
+<button type="button" id="tbUp" aria-label="تقديم">↑</button>
+<button type="button" id="tbDn" aria-label="تأخير">↓</button>
+<button type="button" id="tbDel" class="del">حذف</button>
+</div>
+<div class="r tog"><button type="button" id="shpT" aria-expanded="false" aria-controls="shp"><span id="shpI">●</span> الشكل ▾</button><button type="button" id="swT" aria-expanded="false" aria-controls="sw"><span class="dt" id="swI"></span> اللون ▾</button></div>
+<div class="r shp" id="shp" aria-label="الشكل" hidden><button type="button" data-s="circle">● دائرة</button><button type="button" data-s="square">■ مربع</button><button type="button" data-s="diamond">◆ معين</button></div>
+<div class="sw" id="sw" aria-label="اللون" hidden></div>
+</div>
+<input id="nameEd" placeholder="اسم المحطة" aria-label="اسم المحطة">
+</div>
+<details><summary>نسخة احتياطية من البيانات</summary>
+<textarea id="json" rows="6"></textarea>
+<div style="display:flex;gap:8px;margin-top:8px"><button type="button" id="cp">نسخ</button><button type="button" id="imp">استيراد من النص</button></div>
+</details>
+<script type="application/json" id="state">{"nodes":[{"id":"r","parent":null,"name":"اكتب العنوان هنا","type":"إدارة"}]}</script>
+<script>
+{
+const $=id=>document.getElementById(id);
+const COLORS=['#0f8a6c','#6a4fc8','#d4572a','#c23d72','#b7791f','#2c6fbf','#4d8a1f','#7a6a55'];
+const AUTO=['down','left','down','back','down','left','front'];
+const V={down:[0,-1,0],up:[0,1,0],left:[-1,0,0],right:[1,0,0],front:[0,0,-1],back:[0,0,1]};
+const DN={down:'أسفل',up:'أعلى',left:'يسار',right:'يمين',front:'أمام',back:'خلف'};
+const U=1.4,LG=3.2;
+let S=JSON.parse($('state').textContent);
+let dirty=false,hist=[],mode='normal',sel=null,rx=-0.3,ry=0.55,zoom=1,pan=[0,0],drag=null,T={},list=[],art=null,handles=[],hover=null,editing=null,delArm=0;
+const SEED=JSON.stringify(S);let canStore=true;
+try{const d=JSON.parse(localStorage.getItem('orgmap-data')||'null');if(d&&Array.isArray(d.nodes)&&d.nodes.some(n=>n.parent===null))S=d;}catch(e){canStore=false;}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const css=v=>getComputedStyle(document.body).getPropertyValue(v).trim()||'#888';
+const rootNode=()=>S.nodes.find(n=>n.parent===null);
+function buildTree(){
+  T={};S.nodes.forEach(n=>T[n.id]={n,ch:[],par:null,depth:0});
+  S.nodes.forEach(n=>{if(n.parent&&T[n.parent]){T[n.id].par=T[n.parent];T[n.parent].ch.push(T[n.id]);}});
+  list=[];(function walk(t,d,color,code){t.depth=d;t.color=t.n.color||color;t.code=code;list.push(t);
+    t.ch.forEach((c,i)=>walk(c,d+1,d===0&&!t.n.color?COLORS[i%COLORS.length]:t.color,code+(code?'.':'')+i.toString(2)));})(T[rootNode().id],0,null,'');
+}
+const OPP={down:'up',up:'down',left:'right',right:'left',front:'back',back:'front'};
+function sideOf(c){const p=c.par;let d=c.n.side||(p.n.dir&&p.n.dir!=='auto'?p.n.dir:AUTO[p.depth%AUTO.length]);
+  if(mode!=='normal'&&(d==='front'||d==='back'))d=p.depth%2?'left':'down';
+  if(p.par&&!(mode==='layers'&&p.depth===1)){const inc=sideOf(p);if(d===OPP[inc])d=inc==='down'||inc==='up'?'left':'down';}
+  return d;}
+function groups(t){const g={};t.ch.forEach(c=>{const s=sideOf(c);(g[s]=g[s]||[]).push(c);});return g;}
+const H0=0.32*U,TH=0.05*U;
+const shift=(b,o)=>[b[0]+o[0],b[1]+o[1],b[2]+o[2],b[3]+o[0],b[4]+o[1],b[5]+o[2]];
+const ov=(a,b)=>a[0]<b[3]&&b[0]<a[3]&&a[1]<b[4]&&b[1]<a[4]&&a[2]<b[5]&&b[2]<a[5];
+function bbox(A){const r=[1e9,1e9,1e9,-1e9,-1e9,-1e9];A.forEach(b=>{for(let k=0;k<3;k++){r[k]=Math.min(r[k],b[k]);r[k+3]=Math.max(r[k+3],b[k+3]);}});return r;}
+function hit(A,B){const ba=bbox(A);const C=B.filter(b=>ov(b,ba));if(!C.length)return false;return A.some(a=>C.some(b=>ov(a,b)));}
+function segBox(d,a,b){const lo=[-TH,-TH,-TH],hi=[TH,TH,TH];for(let k=0;k<3;k++)if(d[k]){const x=d[k]*a,y=d[k]*b;lo[k]=Math.min(x,y);hi[k]=Math.max(x,y);}return[...lo,...hi];}
+function lay(t){
+  const lw=Math.min(U*1.3,(t.n.name||'..').length*0.075*U+0.1*U);
+  const prims=[[-H0,-H0,-H0,H0,H0,H0],[-H0-lw,0.12*U,-0.08*U,-0.05*U,0.45*U,0.08*U]];
+  Object.entries(groups(t)).forEach(([k,a])=>{const d=V[k];let last=0;
+    a.forEach((c,i)=>{c.prev=i?a[i-1]:t;const cp=lay(c);let s,mv,sg,okk=false;
+      const at=(x,strict)=>{const o=[d[0]*x,d[1]*x,d[2]*x];mv=cp.map(b=>shift(b,o));sg=segBox(d,last+H0,x-H0);return!hit(mv,prims)&&(!strict||(!hit([sg],prims)&&!hit([sg],mv)));};
+      for(s=last+U;s<last+30*U;s+=U/2)if(at(s,true)){okk=true;break;}
+      if(!okk)for(s=last+U;s<last+400*U;s+=U/2)if(at(s,false))break;
+      c.rel=[d[0]*s,d[1]*s,d[2]*s];prims.push(...mv,sg);last=s;});});
+  return prims;}
+function assign(t,p){t.p=p;t.ch.forEach(c=>assign(c,[p[0]+c.rel[0],p[1]+c.rel[1],p[2]+c.rel[2]]));}
+const ms=s=>{const t=Date.parse(s);return isNaN(t)?null:t;};
+let tr=null,norm=null;
+function layout(){
+  buildTree();const r=list[0];
+  r.prev=null;
+  if(mode==='layers'){r.p=[0,U,0];r.ch.forEach((c,i)=>{c.prev=i?r.ch[i-1]:r;lay(c);assign(c,[0,0,i*LG]);});}
+  else{lay(r);assign(r,[0,0,0]);}
+  tr=null;
+  if(mode==='time'){
+    const ts=list.map(t=>ms(t.n.date)).filter(x=>x!==null);
+    let mn=[1e9,1e9],mx=[-1e9,-1e9];list.forEach(t=>{for(let k=0;k<2;k++){mn[k]=Math.min(mn[k],t.p[k]);mx[k]=Math.max(mx[k],t.p[k]);}});
+    const TZ=Math.max(mx[0]-mn[0],mx[1]-mn[1],4)*0.9;
+    if(ts.length){const a=Math.min(...ts),b=Math.max(...ts),mid=(a+b)/2,rg=(b-a)||1;const zf=x=>-(x-mid)/rg*TZ;
+      tr={a,b,zf,x:mn[0]-U,y:mn[1]-U*0.6};list.forEach(t=>{const x=ms(t.n.date);t.p[2]=x!==null?zf(x):(t.par?t.par.p[2]:0);});}
+  }
+  let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];
+  list.forEach(t=>{for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],t.p[k]);mx[k]=Math.max(mx[k],t.p[k]);}});
+  const c=mn.map((v,k)=>(v+mx[k])/2),sz=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2],2.5);
+  norm=p=>p.map((v,k)=>(v-c[k])/sz*2);list.forEach(t=>t.w=norm(t.p));
+}
+const cv=$('cv'),ctx=cv.getContext('2d'),fig=$('fig');
+function proj(w,Wd,H){let[x,y,z]=w;const cy=Math.cos(ry),sy=Math.sin(ry);[x,z]=[x*cy+z*sy,-x*sy+z*cy];const cx=Math.cos(rx),sx=Math.sin(rx);[y,z]=[y*cx-z*sx,y*sx+z*cx];const f=3.4/(3.4+z),s=Math.min(Wd,H)*0.4*zoom;return[Wd/2+pan[0]+x*s*f,H/2+pan[1]-y*s*f,z,f];}
+const isUnder=(t,anc)=>{let s=t;while(s){if(s===anc)return true;s=s.par;}return false;};
+const lit=t=>!sel||!T[sel]||isUnder(T[sel],t)||isUnder(t,T[sel]);
+const today=Date.now();
+function draw(){
+  const dpr=window.devicePixelRatio||1,Wd=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==Math.round(Wd*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(Wd*dpr);cv.height=Math.round(H*dpr);}
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,Wd,H);if(!list.length)return;
+  const ink=css('--ink'),muted=css('--muted'),nodeBg=css('--node'),danger=css('--danger'),pop=css('--pop');
+  list.forEach(t=>t.s=proj(t.w,Wd,H));
+  ctx.direction='rtl';ctx.lineCap='round';ctx.lineJoin='round';
+  if(mode==='layers'){
+    list[0].ch.map(d=>{const sub=[];(function g(t){sub.push(t);t.ch.forEach(g);})(d);
+      let a=[1e9,1e9],b=[-1e9,-1e9];sub.forEach(t=>{a[0]=Math.min(a[0],t.w[0]);a[1]=Math.min(a[1],t.w[1]);b[0]=Math.max(b[0],t.w[0]);b[1]=Math.max(b[1],t.w[1]);});
+      const pd=0.12,z=d.w[2],cs=[[a[0]-pd,a[1]-pd],[b[0]+pd,a[1]-pd],[b[0]+pd,b[1]+pd],[a[0]-pd,b[1]+pd]].map(q=>proj([q[0],q[1],z],Wd,H));
+      return{d,cs,z:cs[0][2]};}).sort((p,q)=>q.z-p.z).forEach(p=>{
+      ctx.beginPath();p.cs.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.closePath();
+      ctx.globalAlpha=lit(p.d)?0.09:0.03;ctx.fillStyle=p.d.color;ctx.fill();ctx.globalAlpha=0.35;ctx.strokeStyle=p.d.color;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;
+      ctx.fillStyle=p.d.color;ctx.font='500 12px "IBM Plex Sans Arabic",sans-serif';ctx.textAlign='left';ctx.fillText('طبقة: '+p.d.n.name,p.cs[1][0]+4,p.cs[1][1]+14);});
+  }
+  if(tr){const za=norm([0,0,tr.zf(tr.a)])[2],zb=norm([0,0,tr.zf(tr.b)])[2],b0=norm([tr.x,tr.y,0]);
+    const A=proj([b0[0],b0[1],za],Wd,H),B=proj([b0[0],b0[1],zb],Wd,H);
+    ctx.strokeStyle=muted;ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=muted;ctx.font='12px "IBM Plex Sans Arabic",sans-serif';ctx.textAlign='center';
+    const fd=x=>new Date(x).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'short',year:'numeric'});
+    ctx.fillText('الأقدم · '+fd(tr.a),A[0],A[1]+16);ctx.fillText('الأحدث · '+fd(tr.b),B[0],B[1]+16);}
+  list.forEach(c=>{if(!c.par)return;const a=(mode==='time'||!c.prev?c.par:c.prev).s,b=c.s,on=lit(c);
+    ctx.strokeStyle=c.color;ctx.globalAlpha=on?1:0.22;ctx.lineWidth=(c.depth===1?6:c.depth===2?4:2.5)*(sel&&on?1.25:1);
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();});
+  ctx.globalAlpha=1;
+  [...list].sort((a,b)=>b.s[2]-a.s[2]).forEach(t=>{const[x,y,,f]=t.s,n=t.n,big=n.type==='إدارة'||t.depth===0;
+    const r=(t.depth===0?10:big?8:n.type==='موظف'||n.type==='قسم'?6.5:5)*f,col=t.color||ink;
+    ctx.globalAlpha=lit(t)?1:0.35;
+    const sh=n.shape||'circle',P=R=>{ctx.beginPath();if(sh==='square'){const a=R*0.9;ctx.rect(x-a,y-a,2*a,2*a);}else if(sh==='diamond'){const a=R*1.25;ctx.moveTo(x,y-a);ctx.lineTo(x+a,y);ctx.lineTo(x,y+a);ctx.lineTo(x-a,y);ctx.closePath();}else ctx.arc(x,y,R,0,7);};
+    ctx.fillStyle=nodeBg;P(r);ctx.fill();
+    if(n.status==='مكتملة'){ctx.fillStyle=col;ctx.fill();}
+    else if(n.status==='قيد التنفيذ'){ctx.save();P(r);ctx.clip();ctx.fillStyle=col;ctx.fillRect(x,y-r*1.4,r*1.4,r*2.8);ctx.restore();}
+    ctx.strokeStyle=col;ctx.lineWidth=t.ch.length?3:2;if(n.status==='قيد التنفيذ')ctx.setLineDash([3,2]);
+    P(r);ctx.stroke();ctx.setLineDash([]);
+    if(big){ctx.lineWidth=1.5;P(r+3.5*f);ctx.stroke();}
+    if(n.date&&ms(n.date)<today&&n.status!=='مكتملة'){ctx.strokeStyle=danger;ctx.lineWidth=2;P(r+4*f);ctx.stroke();}
+    if(n.id===sel){ctx.strokeStyle=ink;ctx.lineWidth=2;P(r+8);ctx.stroke();}
+    if(editing!==n.id){ctx.textAlign='right';ctx.font=(t.depth<2?'600 ':'')+Math.round((t.depth<2?14:12)*Math.max(0.85,Math.min(1.2,f)))+'px "IBM Plex Sans Arabic",sans-serif';
+      ctx.fillStyle=t.depth<3?ink:muted;ctx.fillText(n.name||'…',x-r-6,y-r-2);}});
+  ctx.globalAlpha=1;handles=[];
+  const t=sel&&T[sel];
+  if(t&&!editing){const keys=mode==='normal'||t.depth===0&&mode==='layers'?['up','down','right','left','front','back']:['up','down','right','left'];
+    const inc=t.par&&!(mode==='layers'&&t.depth===1)?sideOf(t):null;if(!(mode==='layers'&&t.depth===0))keys.filter(k=>!inc||k!==OPP[inc]).forEach(k=>{const v=V[k],e=proj([t.w[0]+v[0]*0.17,t.w[1]+v[1]*0.17,t.w[2]+v[2]*0.17],Wd,H);
+      let dx=e[0]-t.s[0],dy=e[1]-t.s[1],L=Math.hypot(dx,dy);if(L<8){dx=k==='front'?14:-14;dy=k==='front'?14:-14;L=Math.hypot(dx,dy);}
+      const m=Math.max(L,42)/L,hx=t.s[0]+dx*m,hy=t.s[1]+dy*m;handles.push({k,x:hx,y:hy});});
+    else handles.push({k:'layer',x:t.s[0],y:t.s[1]+44});
+    handles.forEach(h=>{const hv=hover===h.k;ctx.strokeStyle=t.color||ink;ctx.globalAlpha=0.5;ctx.setLineDash([3,3]);ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(t.s[0],t.s[1]);ctx.lineTo(h.x,h.y);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+      ctx.fillStyle=hv?(t.color||ink):pop;ctx.beginPath();ctx.arc(h.x,h.y,12,0,7);ctx.fill();ctx.stroke();
+      ctx.strokeStyle=hv?pop:(t.color||ink);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(h.x-5,h.y);ctx.lineTo(h.x+5,h.y);ctx.moveTo(h.x,h.y-5);ctx.lineTo(h.x,h.y+5);ctx.stroke();
+      const cn=continues(t,h.k);
+      if(hv||cn||h.k==='front'||h.k==='back'||h.k==='layer'){ctx.fillStyle=ink;ctx.font='500 12px "IBM Plex Sans Arabic",sans-serif';ctx.textAlign='center';ctx.fillText(h.k==='layer'?'طبقة جديدة':cn?'متابعة المسار':DN[h.k]+' (فرع)',h.x,h.y+26);}});
+  }
+  placeUI();
+}
+function placeUI(){
+  const t=sel&&T[sel],tb=$('tb'),ed=$('nameEd'),W=fig.clientWidth,H=fig.clientHeight;
+  if(editing&&T[editing]){const s=T[editing].s;ed.style.display='block';ed.style.transform=`translate(${Math.max(4,Math.min(W-204,s[0]-210))}px,${Math.max(4,Math.min(H-44,s[1]-46))}px)`;}else ed.style.display='none';
+  tb.style.display=t&&!editing?'flex':'none';
+}
+function loop(){draw();requestAnimationFrame(loop);}
+function fillTB(){const t=T[sel];if(!t)return;const ch=[];let s=t;while(s){ch.unshift(s.n.name||'…');s=s.par;}
+  $('tbPath').innerHTML=esc(ch.join(' ← '))+' · <span class="code">'+esc(t.code||'0')+'</span>';
+  $('tbType').value=t.n.type||'مهمة';$('tbStat').value=t.n.status||'جديدة';$('tbDate').value=t.n.date||'';
+  renderSw(t);$('shpI').textContent={circle:'●',square:'■',diamond:'◆'}[t.n.shape||'circle'];$('swI').style.background=t.color||'var(--ink)';$('shp').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',(t.n.shape||'circle')===b.dataset.s));$('tbDel').style.display=t.depth===0?'none':'';$('tbUp').style.display=$('tbDn').style.display=t.depth===0?'none':'';$('tbDel').textContent='حذف';delArm=0;}
+const PAL=['#0f8a6c','#2c6fbf','#6a4fc8','#c23d72','#d4572a','#b7791f','#4d8a1f','#0e8fa3','#a3362b','#7a6a55','#3d4650'];
+function renderSw(t){const cur=t.n.color||'';
+  $('sw').innerHTML=PAL.map(c=>`<button type="button" data-c="${c}" style="background:${c}" aria-label="لون" aria-pressed="${cur===c}"></button>`).join('')+
+  `<input type="color" id="swPick" value="${/^#[0-9a-f]{6}$/i.test(cur)?cur:'#0f8a6c'}" aria-label="لون مخصص" title="لون مخصص"><button type="button" class="auto" data-c="" aria-pressed="${!cur}">تلقائي</button>`;}
+function setColor(c){const n=T[sel]?.n;if(!n)return;if((n.color||'')===c)return;snap();if(c)n.color=c;else delete n.color;commit();}
+$('shp').addEventListener('click',e=>{const b=e.target.closest('button[data-s]'),n=T[sel]?.n;if(!b||!n||(n.shape||'circle')===b.dataset.s)return;snap();if(b.dataset.s==='circle')delete n.shape;else n.shape=b.dataset.s;commit();openPop(null);});
+$('sw').addEventListener('click',e=>{const b=e.target.closest('button[data-c]');if(b){setColor(b.dataset.c);openPop(null);}});
+$('sw').addEventListener('change',e=>{if(e.target.id==='swPick')setColor(e.target.value);});
+function openPop(w){[['shp','shpT'],['sw','swT']].forEach(([a,b])=>{const on=a===w&&$(a).hidden;$(a).hidden=!on;$(b).setAttribute('aria-expanded',on);});}
+$('shpT').onclick=()=>openPop('shp');$('swT').onclick=()=>openPop('sw');
+function select(id){openPop(null);sel=id;hover=null;fillTB();}
+function refresh(){layout();if(sel&&!T[sel])sel=null;fillTB();$('ttl').textContent=rootNode().name||'خريطة المسارات';$('json').value=JSON.stringify(S,null,1);status();}
+function status(m){$('status').textContent=m||(canStore?'محفوظ تلقائيًا على هذا الجهاز':'المتصفح لا يسمح بالحفظ التلقائي، استخدم حفظ نسخة');}
+function commit(){try{localStorage.setItem('orgmap-data',JSON.stringify(S));canStore=true;}catch(e){canStore=false;}refresh();}
+function snap(){hist.push(JSON.stringify(S));if(hist.length>80)hist.shift();}
+const nid=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let newId=null;
+const continues=(t,k)=>t&&t.par&&k!=='layer'&&!(mode==='layers'&&t.depth===1)&&sideOf(t)===k;
+function addAt(k){const t=T[sel];if(!t)return;snap();let n;
+  if(continues(t,k)){n={id:nid(),parent:t.par.n.id,name:'',type:t.n.type,status:'جديدة',side:k};S.nodes.splice(S.nodes.indexOf(t.n)+1,0,n);}
+  else{const ty=t.depth===0?'إدارة':t.n.type==='إدارة'?'موظف':t.n.type==='موظف'?'مهمة':t.n.type==='قسم'?'موظف':'خطوة';
+    n={id:nid(),parent:t.n.id,name:'',type:ty,status:'جديدة'};if(k!=='layer')n.side=k;S.nodes.push(n);}newId=n.id;sel=n.id;dirty=true;layout();startEdit(n.id);}
+function startEdit(id){editing=id;const ed=$('nameEd');ed.value=T[id].n.name||'';draw();ed.focus();ed.select();}
+function endEdit(ok){if(!editing)return;const id=editing,n=T[id]&&T[id].n,v=$('nameEd').value.trim();editing=null;$('nameEd').blur();
+  if(!n){return;}
+  if(ok&&v){if(id!==newId&&v!==n.name)snap();n.name=v;}
+  else if(id===newId){S.nodes=S.nodes.filter(x=>x.id!==id);hist.pop();sel=n.parent;}
+  newId=null;commit();fillTB();}
+$('nameEd').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();endEdit(true);}else if(e.key==='Escape'){e.preventDefault();endEdit(false);}});
+$('nameEd').addEventListener('blur',()=>{if(editing)endEdit(true);});
+$('tbName').onclick=()=>sel&&startEdit(sel);
+[['tbType','type'],['tbStat','status'],['tbDate','date']].forEach(([k,p])=>$(k).addEventListener('change',()=>{const n=T[sel]?.n;if(!n)return;snap();n[p]=$(k).value;commit();}));
+function move(dx){const t=T[sel];if(!t||!t.par)return;const sib=t.par.ch.filter(c=>sideOf(c)===sideOf(t)),i=sib.indexOf(t),j=i+dx;if(j<0||j>=sib.length)return;snap();
+  const a=S.nodes.indexOf(t.n),b=S.nodes.indexOf(sib[j].n);[S.nodes[a],S.nodes[b]]=[S.nodes[b],S.nodes[a]];commit();}
+$('tbUp').onclick=()=>move(-1);$('tbDn').onclick=()=>move(1);
+function delSel(){const t=T[sel];if(!t||!t.par)return;snap();const ids=new Set();(function g(x){ids.add(x.n.id);x.ch.forEach(g);})(t);
+  S.nodes=S.nodes.filter(n=>!ids.has(n.id));sel=t.par.n.id;commit();status('حُذفت '+ids.size+' محطة، اضغط تراجع للاستعادة');}
+$('tbDel').onclick=()=>{const t=T[sel];if(!t)return;if(t.ch.length&&!delArm){$('tbDel').textContent='تأكيد حذفها وفروعها';delArm=setTimeout(()=>{delArm=0;$('tbDel').textContent='حذف';},3000);return;}clearTimeout(delArm);delArm=0;delSel();};
+$('undo').onclick=()=>{if(editing)endEdit(false);if(!hist.length){status('لا يوجد ما يُتراجع عنه');return;}S=JSON.parse(hist.pop());commit();};
+document.addEventListener('keydown',e=>{if(editing||/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();$('undo').click();}
+  else if(sel&&(e.key==='Delete'||e.key==='Backspace')){e.preventDefault();delSel();}
+  else if(sel&&e.key==='Enter'){e.preventDefault();startEdit(sel);}
+  else if(e.key==='Escape'){sel=null;}});
+$('reset').onclick=()=>{rx=-0.3;ry=0.55;zoom=1;pan=[0,0];};
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  if(mode==='layers'){rx=-0.25;ry=0.9;}else if(mode==='time'){rx=-0.2;ry=1.1;}else{rx=-0.3;ry=0.55;}pan=[0,0];layout();});
+$('cp').onclick=async()=>{try{await navigator.clipboard.writeText($('json').value);status('نُسخت البيانات');}catch(e){$('json').select();status('حدّد النص وانسخه يدويًا');}};
+$('imp').onclick=()=>{try{const d=JSON.parse($('json').value);if(!Array.isArray(d.nodes)||!d.nodes.some(n=>n.parent===null))throw 0;snap();S=d;sel=null;commit();status('تم الاستيراد');}catch(e){status('النص ليس بيانات صالحة');}};
+const inUI=e=>e.target.closest('#tb,#nameEd,#ctl');
+const ACT={pu:()=>pan[1]-=8,pd:()=>pan[1]+=8,pl:()=>pan[0]-=8,pr:()=>pan[0]+=8,zi:()=>zoom=Math.min(5,zoom*1.03),zo:()=>zoom=Math.max(0.3,zoom/1.03),
+  rr:()=>ry+=0.03,rl:()=>ry-=0.03,ru:()=>rx=Math.max(-1.5,rx-0.03),rd:()=>rx=Math.min(1.5,rx+0.03)};
+let rep=null;const stopRep=()=>{clearInterval(rep);rep=null;};
+$('ctl').querySelectorAll('button[data-act]').forEach(b=>{const f=ACT[b.dataset.act];
+  b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();f();stopRep();rep=setInterval(f,30);});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stopRep));
+  b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();for(let i=0;i<5;i++)f();}});});
+$('ctlC').onclick=()=>{rx=-0.3;ry=0.55;zoom=1;pan=[0,0];};
+function hitHandle(px,py){return handles.find(h=>Math.hypot(h.x-px,h.y-py)<15);}
+fig.addEventListener('pointerdown',e=>{if(inUI(e))return;if(editing)endEdit(true);drag={x:e.clientX,y:e.clientY,moved:false,pan:e.shiftKey||e.button===2};fig.setPointerCapture(e.pointerId);});
+fig.addEventListener('pointermove',e=>{const b=cv.getBoundingClientRect(),px=e.clientX-b.left,py=e.clientY-b.top;
+  if(!drag){const h=hitHandle(px,py);hover=h?h.k:null;fig.style.cursor=h||list.some(t=>Math.hypot(t.s[0]-px,t.s[1]-py)<14)?'pointer':'grab';return;}
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;if(!drag.moved)return;fig.style.cursor='grabbing';
+  if(drag.pan){pan[0]+=dx;pan[1]+=dy;}else{ry+=dx*0.008;rx=Math.max(-1.5,Math.min(1.5,rx+dy*0.008));}drag.x=e.clientX;drag.y=e.clientY;});
+fig.addEventListener('pointerup',e=>{if(inUI(e)||!drag)return;const m=drag.moved;drag=null;fig.style.cursor='grab';if(m)return;
+  const b=cv.getBoundingClientRect(),px=e.clientX-b.left,py=e.clientY-b.top;
+  const h=hitHandle(px,py);if(h){addAt(h.k);return;}
+  let best=null,bd=20;list.forEach(t=>{const d=Math.hypot(t.s[0]-px,t.s[1]-py);if(d<bd){bd=d;best=t;}});
+  if(best&&best.n.id===sel){startEdit(sel);return;}
+  if(best)select(best.n.id);else sel=null;});
+fig.addEventListener('contextmenu',e=>e.preventDefault());
+fig.addEventListener('wheel',e=>{if(inUI(e))return;e.preventDefault();zoom=Math.max(0.3,Math.min(5,zoom*(e.deltaY<0?1.1:0.91)));},{passive:false});
+$('dl').onclick=()=>{if(editing)endEdit(true);const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=(rootNode().name||'خريطة').replace(/[\\/:*?"<>|]/g,'-')+' '+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);status('نُزّلت نسخة احتياطية');};
+$('openBtn').onclick=()=>$('file').click();
+$('file').onchange=()=>{const f=$('file').files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.nodes)||!d.nodes.some(n=>n.parent===null))throw 0;snap();S=d;sel=null;commit();status('فُتحت النسخة: '+f.name);}catch(e){status('هذا الملف ليس نسخة صالحة من الخريطة');}$('file').value='';};r.readAsText(f);};
+let newArm=0;$('newMap').onclick=()=>{if(!newArm){$('newMap').textContent='تأكيد: مسح الخريطة';newArm=setTimeout(()=>{newArm=0;$('newMap').textContent='خريطة جديدة';},3000);return;}
+  clearTimeout(newArm);newArm=0;$('newMap').textContent='خريطة جديدة';snap();S=JSON.parse(SEED);commit();select('r');status('خريطة جديدة، يمكنك التراجع');};
+const URL3='https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+let THREE=null,VR=null;const vrBtn=$('vrBtn');
+(async()=>{if(!navigator.xr)return;let ok=false;try{ok=await navigator.xr.isSessionSupported('immersive-vr');}catch(e){}
+  if(!ok)return;vrBtn.dataset.ok='1';try{THREE=await import(URL3);}catch(e){}})();
+vrBtn.onclick=async()=>{
+  if(!vrBtn.dataset.ok){status(location.protocol==='https:'?'هذا الجهاز لا يدعم VR، افتح الرابط من متصفح النظارة':'وضع VR يحتاج رابطًا يبدأ بـ https، ارفع الملف على استضافة');return;}
+  if(!THREE){status('جارٍ تحميل مكتبة VR…');try{THREE=await import(URL3);status('جاهز، اضغط دخول VR مرة أخرى');}catch(e){status('تعذّر تحميل مكتبة VR، تأكد من الإنترنت');}return;}
+  if(editing)endEdit(true);
+  let session;try{session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});}catch(e){status('تعذّر الدخول إلى VR');return;}
+  try{if(!VR)VR=initVR();VR.r.xr.setReferenceSpaceType('local-floor');await VR.r.xr.setSession(session);}
+  catch(e){status('تعذّر تشغيل VR: '+(e&&e.message||e));try{session.end();}catch(_){}return;}
+  VR.session=session;buildVR();drawPanel();
+  session.addEventListener('end',()=>{VR.r.setAnimationLoop(null);VR.session=null;VR.grab=null;refresh();status('خرجت من وضع VR');});
+  VR.r.setAnimationLoop(vrFrame);status('أنت الآن في وضع VR');
+};
+function rrect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
+function fit(x,txt,w){if(x.measureText(txt).width<=w)return txt;let s=txt;while(s.length>1&&x.measureText('…'+s).width>w)s=s.slice(1);return'…'+s;}
+const FF='"IBM Plex Sans Arabic",sans-serif';
+function initVR(){
+  const r=new THREE.WebGLRenderer({antialias:true});r.xr.enabled=true;r.setPixelRatio(1);r.setSize(320,200);
+  r.domElement.style.display='none';document.body.appendChild(r.domElement);
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x0f1418);
+  const cam=new THREE.PerspectiveCamera(70,1.6,0.03,60);scene.add(cam);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x334455,1.6));const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(1,3,2);scene.add(dl);
+  scene.add(new THREE.GridHelper(20,40,0x2f3a44,0x1d252c));
+  const map=new THREE.Group();map.position.set(0,1.35,-1.5);scene.add(map);
+  const G={sphere:new THREE.SphereGeometry(1,24,16),square:new THREE.BoxGeometry(1.6,1.6,1.6),diamond:new THREE.OctahedronGeometry(1.35),cyl:new THREE.CylinderGeometry(1,1,1,10),ring:new THREE.TorusGeometry(1.5,0.12,8,32)};
+  const pc=document.createElement('canvas');pc.width=1024;pc.height=680;const ptex=new THREE.CanvasTexture(pc);ptex.colorSpace=THREE.SRGBColorSpace;
+  const panel=new THREE.Mesh(new THREE.PlaneGeometry(0.36,0.239),new THREE.MeshBasicMaterial({map:ptex,transparent:true,side:THREE.DoubleSide}));
+  panel.position.set(-0.35,1.15,-0.7);panel.lookAt(0,1.5,0);scene.add(panel);
+  const V0={r,scene,cam,map,G,panel,pc,ptex,picks:[],bills:[],btns:[],clock:new THREE.Clock(),grab:null,hover:null,halo:null,rc:new THREE.Raycaster(),tm:new THREE.Matrix4()};
+  V0.ctrls=[0,1].map(i=>{const c=r.xr.getController(i);
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]),new THREE.LineBasicMaterial({color:0x9fe1cb}));
+    line.scale.z=4;c.add(line);c.userData.line=line;
+    const dot=new THREE.Mesh(new THREE.SphereGeometry(0.008,8,6),new THREE.MeshBasicMaterial({color:0xffffff}));dot.visible=false;scene.add(dot);c.userData.dot=dot;
+    c.addEventListener('connected',e=>{c.userData.gp=e.data.gamepad;c.userData.hand=e.data.handedness;
+      if(e.data.handedness==='left'){c.add(panel);panel.position.set(0,0.07,-0.12);panel.rotation.set(-0.6,0,0);}});
+    c.addEventListener('disconnected',()=>{c.userData.gp=null;if(panel.parent===c)scene.attach(panel);});
+    c.addEventListener('selectstart',()=>vrSelect(c));
+    c.addEventListener('squeezestart',()=>{if(!VR.grab){VR.grab=c;c.attach(VR.map);}});
+    c.addEventListener('squeezeend',()=>{if(VR.grab===c){VR.scene.attach(VR.map);VR.grab=null;}});
+    scene.add(c);return c;});
+  return V0;
+}
+function vrLabel(txt,big){const fs=big?60:46,c=document.createElement('canvas'),x=c.getContext('2d'),font=(big?'600 ':'500 ')+fs+'px '+FF;x.font=font;
+  const w=Math.ceil(x.measureText(txt).width)+fs,h=Math.ceil(fs*1.6);c.width=w;c.height=h;x.font=font;x.direction='rtl';x.textAlign='center';x.textBaseline='middle';
+  x.fillStyle='rgba(15,20,24,0.72)';rrect(x,0,0,w,h,h/2);x.fill();x.fillStyle='#eef1f3';x.fillText(txt,w/2,h/2+2);
+  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));const hm=big?0.045:0.032;s.scale.set(hm*w/h,hm,1);s.userData.h=hm;return s;}
+function buildVR(){
+  const M=VR.map;[...M.children].forEach(o=>{M.remove(o);o.traverse(x=>{if(x.material){if(x.material.map)x.material.map.dispose();x.material.dispose();}});});
+  VR.picks=[];VR.bills=[];VR.hover=null;const K=1.2;list.forEach(t=>t.v=new THREE.Vector3(t.w[0]*K,t.w[1]*K,t.w[2]*K));
+  if(mode==='layers')list[0].ch.forEach(d=>{const sub=[];(function g(t){sub.push(t);t.ch.forEach(g);})(d);
+    let a=[1e9,1e9],b=[-1e9,-1e9];sub.forEach(t=>{a[0]=Math.min(a[0],t.v.x);a[1]=Math.min(a[1],t.v.y);b[0]=Math.max(b[0],t.v.x);b[1]=Math.max(b[1],t.v.y);});
+    const pd=0.12,pl=new THREE.Mesh(new THREE.PlaneGeometry(b[0]-a[0]+2*pd,b[1]-a[1]+2*pd),new THREE.MeshBasicMaterial({color:d.color,transparent:true,opacity:0.1,side:THREE.DoubleSide,depthWrite:false}));
+    pl.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,d.v.z);M.add(pl);});
+  list.forEach(c=>{if(!c.par)return;const a=(mode==='time'||!c.prev?c.par:c.prev).v,d=c.v.clone().sub(a),L=d.length();if(L<1e-4)return;
+    const rad=c.depth===1?0.009:c.depth===2?0.006:0.004,m=new THREE.Mesh(VR.G.cyl,new THREE.MeshStandardMaterial({color:c.color,roughness:0.6}));
+    m.scale.set(rad,L,rad);m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());M.add(m);});
+  list.forEach(t=>{const n=t.n,col=new THREE.Color(t.color||'#e8eaec'),rr=t.depth===0?0.045:n.type==='إدارة'?0.036:(n.type==='موظف'||n.type==='قسم')?0.028:0.022;
+    const geo=VR.G[n.shape==='square'?'square':n.shape==='diamond'?'diamond':'sphere'],done=n.status==='مكتملة',prog=n.status==='قيد التنفيذ';
+    const body=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:done||prog?col:0xf4f6f7,roughness:0.45,transparent:prog,opacity:prog?0.6:1}));
+    body.scale.setScalar(rr);body.position.copy(t.v);body.userData={id:n.id,r:rr};M.add(body);VR.picks.push(body);
+    const sh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:col,side:THREE.BackSide}));sh.scale.setScalar(1.22);body.add(sh);
+    if(n.date&&ms(n.date)<today&&!done){const ring=new THREE.Mesh(VR.G.ring,new THREE.MeshBasicMaterial({color:0xe24b4a}));body.add(ring);VR.bills.push(ring);}
+    const lb=vrLabel(n.name||'…',t.depth<2);lb.position.copy(t.v).add(new THREE.Vector3(0,rr*1.3+lb.userData.h/2+0.01,0));M.add(lb);});
+  VR.halo=new THREE.Mesh(VR.G.ring,new THREE.MeshBasicMaterial({color:0xffffff}));VR.halo.visible=false;M.add(VR.halo);
+}
+function drawPanel(){const c=VR.pc,x=c.getContext('2d'),W=c.width,H=c.height;x.clearRect(0,0,W,H);x.fillStyle='rgba(22,28,33,0.95)';rrect(x,0,0,W,H,36);x.fill();
+  VR.btns=[];x.direction='rtl';
+  const T0=(txt,y,f,col)=>{x.font=f;x.fillStyle=col;x.textAlign='right';x.textBaseline='top';x.fillText(fit(x,txt,W-80),W-40,y);};
+  const B=(id,txt,bx,by,bw,bh,on)=>{x.fillStyle=on?'#5dcaa5':'#2b343b';rrect(x,bx,by,bw,bh,18);x.fill();x.fillStyle=on?'#0f1418':'#eef1f3';
+    x.font='500 38px '+FF;x.textAlign='center';x.textBaseline='middle';x.fillText(txt,bx+bw/2,by+bh/2+2);VR.btns.push({id,bx,by,bw,bh});};
+  const bw=300,gap=22,row=(arr,y)=>arr.forEach(([id,l,on],i)=>B(id,l,W-40-bw-(bw+gap)*i,y,bw,100,!!on));
+  const t=sel&&T[sel];
+  if(!t){T0(rootNode().name||'خريطة المسارات',36,'600 52px '+FF,'#eef1f3');
+    T0('وجّه الشعاع على محطة واضغط الزناد',112,'34px '+FF,'#9aa2a9');T0('القبضة: امسك الخريطة · العصا اليمنى: دوران وتكبير',158,'34px '+FF,'#9aa2a9');T0('العصا اليسرى: تحريك',204,'34px '+FF,'#9aa2a9');
+    row([['mode:normal','المسارات',mode==='normal'],['mode:layers','طبقات',mode==='layers'],['mode:time','الزمن',mode==='time']],290);}
+  else{const n=t.n,ch=[];let s=t;while(s){ch.unshift(s.n.name||'…');s=s.par;}
+    T0(ch.join(' ← '),30,'32px '+FF,'#9aa2a9');T0(n.name||'…',76,'600 56px '+FF,'#eef1f3');
+    T0([n.type,n.status||'جديدة',n.date].filter(Boolean).join(' · '),156,'34px '+FF,'#9aa2a9');
+    x.fillStyle=t.color||'#e8eaec';x.beginPath();x.arc(60,180,22,0,7);x.fill();
+    row([['status','الحالة ⟳'],['color','اللون ⟳'],['shape','الشكل ⟳']],230);
+    row([['child','+ فرع'],['cont','+ متابعة'],['desel','رجوع']],350);}
+  B('exit','خروج من VR',40,520,W-80,110,false);VR.ptex.needsUpdate=true;}
+function vrHit(c){VR.tm.identity().extractRotation(c.matrixWorld);VR.rc.ray.origin.setFromMatrixPosition(c.matrixWorld);VR.rc.ray.direction.set(0,0,-1).applyMatrix4(VR.tm);
+  const tg=VR.panel.parent===c?VR.picks:[VR.panel,...VR.picks];return VR.rc.intersectObjects(tg,false)[0]||null;}
+function vrSelect(c){const h=vrHit(c);if(!h){sel=null;drawPanel();return;}
+  if(h.object===VR.panel){if(!h.uv)return;const px=h.uv.x*VR.pc.width,py=(1-h.uv.y)*VR.pc.height;
+    const b=VR.btns.find(b=>px>=b.bx&&px<=b.bx+b.bw&&py>=b.by&&py<=b.by+b.bh);if(b)vrAct(b.id);return;}
+  sel=h.object.userData.id;drawPanel();}
+function vrAct(id){
+  if(id==='exit'){if(VR.session)VR.session.end();return;}
+  if(id.startsWith('mode:')){mode=id.slice(5);document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.mode===mode));layout();buildVR();drawPanel();return;}
+  if(id==='desel'){sel=null;drawPanel();return;}
+  const t=sel&&T[sel];if(!t)return;const n=t.n;
+  if(id==='status'){snap();const st=['جديدة','قيد التنفيذ','مكتملة'];n.status=st[(st.indexOf(n.status||'جديدة')+1)%3];}
+  else if(id==='color'){snap();const o=[...PAL,''],c=o[(o.indexOf(n.color||'')+1)%o.length];if(c)n.color=c;else delete n.color;}
+  else if(id==='shape'){snap();const o=['circle','square','diamond'],c=o[(o.indexOf(n.shape||'circle')+1)%3];if(c==='circle')delete n.shape;else n.shape=c;}
+  else if(id==='child'){snap();const ty=t.depth===0?'إدارة':n.type==='إدارة'?'موظف':n.type==='موظف'?'مهمة':n.type==='قسم'?'موظف':'خطوة';
+    const nn={id:nid(),parent:n.id,name:'جديد',type:ty,status:'جديدة'};S.nodes.push(nn);sel=nn.id;}
+  else if(id==='cont'){if(!t.par)return;snap();const nn={id:nid(),parent:t.par.n.id,name:'جديد',type:n.type,status:'جديدة',side:sideOf(t)};S.nodes.splice(S.nodes.indexOf(n)+1,0,nn);sel=nn.id;}
+  else return;
+  commit();buildVR();drawPanel();}
+function vrFrame(){const dt=Math.min(0.05,VR.clock.getDelta()),xc=VR.r.xr.getCamera(),camP=new THREE.Vector3();xc.getWorldPosition(camP);
+  if(VR.hover){VR.hover.scale.setScalar(VR.hover.userData.r);VR.hover=null;}
+  VR.ctrls.forEach(c=>{const h=vrHit(c);c.userData.line.scale.z=h?h.distance:4;c.userData.dot.visible=!!h;if(h)c.userData.dot.position.copy(h.point);
+    if(h&&h.object!==VR.panel&&!VR.hover){VR.hover=h.object;h.object.scale.setScalar(h.object.userData.r*1.25);}
+    const gp=c.userData.gp;if(!gp)return;const ax=gp.axes||[],dz=v=>Math.abs(v||0)<0.15?0:v,x=dz(ax[2]),y=dz(ax[3]);
+    if(c.userData.hand==='right'){VR.map.rotation.y+=x*dt*1.6;VR.map.scale.setScalar(Math.min(6,Math.max(0.2,VR.map.scale.x*(1-y*dt*1.2))));}
+    else if(c.userData.hand==='left'&&(x||y)){const f=new THREE.Vector3();xc.getWorldDirection(f);f.y=0;if(f.lengthSq()<1e-6)return;f.normalize();
+      const rt=new THREE.Vector3(-f.z,0,f.x);VR.map.position.addScaledVector(f,y*dt*1.2).addScaledVector(rt,-x*dt*1.2);}});
+  VR.bills.forEach(b=>b.lookAt(camP));
+  const sb=sel&&VR.picks.find(p=>p.userData.id===sel);VR.halo.visible=!!sb;if(sb){VR.halo.position.copy(sb.position);VR.halo.scale.setScalar(sb.userData.r*1.5);VR.halo.lookAt(camP);}
+  VR.r.render(VR.scene,VR.cam);}
+refresh();if(S.nodes.length===1)select(rootNode().id);loop();
+}
+</script>
+</body>
+</html>
