@@ -39,6 +39,8 @@ button.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .tb button,.tb select,.tb input{min-height:34px;font-size:14px;padding:2px 8px;border-radius:8px}
 .tb .del{color:var(--danger)}
 .tb input[type=date]{direction:ltr;text-align:right}
+#tbDate.empty::-webkit-datetime-edit{opacity:0}
+.tb .dl{font-size:13px;color:var(--muted);align-self:center}
 .shp[hidden],.sw[hidden]{display:none}
 .tog button{display:inline-flex;align-items:center;gap:6px}.tog button[aria-expanded=true]{border-color:var(--ink)}
 .tog .dt{width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid var(--line)}
@@ -96,7 +98,7 @@ details textarea{width:100%;margin-top:8px;font:13px ui-monospace,monospace;dire
 <select id="tbStat" aria-label="الحالة"><option>جديدة</option><option>قيد التنفيذ</option><option>مكتملة</option></select>
 </div>
 <div class="r">
-<input type="date" id="tbDate" lang="en" aria-label="التاريخ">
+<span class="dl">التاريخ</span><input type="date" id="tbDate" lang="en" aria-label="التاريخ">
 <button type="button" id="tbUp" aria-label="تقديم">↑</button>
 <button type="button" id="tbDn" aria-label="تأخير">↓</button>
 <button type="button" id="tbDel" class="del">حذف</button>
@@ -245,7 +247,7 @@ function placeUI(){
 function loop(){draw();requestAnimationFrame(loop);}
 function fillTB(){const t=T[sel];if(!t)return;const ch=[];let s=t;while(s){ch.unshift(s.n.name||'…');s=s.par;}
   $('tbPath').innerHTML=esc(ch.join(' ← '))+' · <span class="code">'+esc(t.code||'0')+'</span>';
-  $('tbType').value=t.n.type||'مهمة';$('tbStat').value=t.n.status||'جديدة';$('tbDate').value=t.n.date||'';
+  $('tbType').value=t.n.type||'مهمة';$('tbStat').value=t.n.status||'جديدة';$('tbDate').value=t.n.date||'';$('tbDate').classList.toggle('empty',!t.n.date);
   renderSw(t);$('shpI').textContent={circle:'●',square:'■',diamond:'◆'}[t.n.shape||'circle'];$('swI').style.background=t.color||'var(--ink)';$('shp').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',(t.n.shape||'circle')===b.dataset.s));$('tbDel').style.display=t.depth===0?'none':'';$('tbUp').style.display=$('tbDn').style.display=t.depth===0?'none':'';$('tbDel').textContent='حذف';delArm=0;}
 const PAL=['#0f8a6c','#2c6fbf','#6a4fc8','#c23d72','#d4572a','#b7791f','#4d8a1f','#0e8fa3','#a3362b','#7a6a55','#3d4650'];
 function renderSw(t){const cur=t.n.color||'';
