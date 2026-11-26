@@ -149,8 +149,8 @@ function bbox(A){const r=[1e9,1e9,1e9,-1e9,-1e9,-1e9];A.forEach(b=>{for(let k=0;
 function hit(A,B){const ba=bbox(A);const C=B.filter(b=>ov(b,ba));if(!C.length)return false;return A.some(a=>C.some(b=>ov(a,b)));}
 function segBox(d,a,b){const lo=[-TH,-TH,-TH],hi=[TH,TH,TH];for(let k=0;k<3;k++)if(d[k]){const x=d[k]*a,y=d[k]*b;lo[k]=Math.min(x,y);hi[k]=Math.max(x,y);}return[...lo,...hi];}
 function lay(t){
-  const lw=Math.min(U*1.3,(t.n.name||'..').length*0.075*U+0.1*U);
-  const prims=[[-H0,-H0,-H0,H0,H0,H0],[-H0-lw,0.12*U,-0.08*U,-0.05*U,0.45*U,0.08*U]];
+  const lw=(t.n.name||'..').length*0.085*U+0.25*U;
+  const prims=[[-H0,-H0,-H0,H0,H0,H0],[-H0-lw,0.02*U,-0.12*U,-0.02*U,0.62*U,0.12*U]];
   Object.entries(groups(t)).forEach(([k,a])=>{const d=V[k];let last=0;
     a.forEach((c,i)=>{c.prev=i?a[i-1]:t;const cp=lay(c);let s,mv,sg,okk=false;
       const at=(x,strict)=>{const o=[d[0]*x,d[1]*x,d[2]*x];mv=cp.map(b=>shift(b,o));sg=segBox(d,last+H0,x-H0);return!hit(mv,prims)&&(!strict||(!hit([sg],prims)&&!hit([sg],mv)));};
@@ -160,7 +160,7 @@ function lay(t){
   return prims;}
 function assign(t,p){t.p=p;t.ch.forEach(c=>assign(c,[p[0]+c.rel[0],p[1]+c.rel[1],p[2]+c.rel[2]]));}
 const ms=s=>{const t=Date.parse(s);return isNaN(t)?null:t;};
-let tr=null,norm=null;
+let tr=null,norm=null,SZ=2.5;
 function layout(){
   buildTree();const r=list[0];
   r.prev=null;
@@ -177,7 +177,7 @@ function layout(){
   let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];
   list.forEach(t=>{for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],t.p[k]);mx[k]=Math.max(mx[k],t.p[k]);}});
   const c=mn.map((v,k)=>(v+mx[k])/2),sz=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2],2.5);
-  norm=p=>p.map((v,k)=>(v-c[k])/sz*2);list.forEach(t=>t.w=norm(t.p));
+  SZ=sz;norm=p=>p.map((v,k)=>(v-c[k])/sz*2);list.forEach(t=>t.w=norm(t.p));
 }
 const cv=$('cv'),ctx=cv.getContext('2d'),fig=$('fig');
 function proj(w,Wd,H){let[x,y,z]=w;const cy=Math.cos(ry),sy=Math.sin(ry);[x,z]=[x*cy+z*sy,-x*sy+z*cy];const cx=Math.cos(rx),sx=Math.sin(rx);[y,z]=[y*cx-z*sx,y*sx+z*cx];const f=3.4/(3.4+z),s=Math.min(Wd,H)*0.4*zoom;return[Wd/2+pan[0]+x*s*f,H/2+pan[1]-y*s*f,z,f];}
@@ -222,7 +222,7 @@ function draw(){
     if(big){ctx.lineWidth=1.5;P(r+3.5*f);ctx.stroke();}
     if(n.date&&ms(n.date)<today&&n.status!=='مكتملة'){ctx.strokeStyle=danger;ctx.lineWidth=2;P(r+4*f);ctx.stroke();}
     if(n.id===sel){ctx.strokeStyle=ink;ctx.lineWidth=2;P(r+8);ctx.stroke();}
-    if(editing!==n.id){ctx.textAlign='right';ctx.font=(t.depth<2?'600 ':'')+Math.round((t.depth<2?14:12)*Math.max(0.85,Math.min(1.2,f)))+'px "IBM Plex Sans Arabic",sans-serif';
+    const lfs=Math.max(t.depth<2?10:0,Math.round(Math.min((t.depth<2?14:12)*Math.max(0.85,Math.min(1.2,f)),0.34*U*f*Math.min(Wd,H)*0.4*zoom/SZ)));if(editing!==n.id&&lfs>=5){ctx.textAlign='right';ctx.font=(t.depth<2?'600 ':'')+lfs+'px "IBM Plex Sans Arabic",sans-serif';
       ctx.fillStyle=t.depth<3?ink:muted;ctx.fillText(n.name||'…',x-r-6,y-r-2);}});
   ctx.globalAlpha=1;handles=[];
   const t=sel&&T[sel];
@@ -300,7 +300,7 @@ document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{mode=b.datase
 $('cp').onclick=async()=>{try{await navigator.clipboard.writeText($('json').value);status('نُسخت البيانات');}catch(e){$('json').select();status('حدّد النص وانسخه يدويًا');}};
 $('imp').onclick=()=>{try{const d=JSON.parse($('json').value);if(!Array.isArray(d.nodes)||!d.nodes.some(n=>n.parent===null))throw 0;snap();S=d;sel=null;commit();status('تم الاستيراد');}catch(e){status('النص ليس بيانات صالحة');}};
 const inUI=e=>e.target.closest('#tb,#nameEd,#ctl');
-const ACT={pu:()=>pan[1]-=8,pd:()=>pan[1]+=8,pl:()=>pan[0]-=8,pr:()=>pan[0]+=8,zi:()=>zoom=Math.min(5,zoom*1.03),zo:()=>zoom=Math.max(0.3,zoom/1.03),
+const ACT={pu:()=>pan[1]-=8,pd:()=>pan[1]+=8,pl:()=>pan[0]-=8,pr:()=>pan[0]+=8,zi:()=>zoom=Math.min(60,zoom*1.03),zo:()=>zoom=Math.max(0.3,zoom/1.03),
   rr:()=>ry+=0.03,rl:()=>ry-=0.03,ru:()=>rx=Math.max(-1.5,rx-0.03),rd:()=>rx=Math.min(1.5,rx+0.03)};
 let rep=null;const stopRep=()=>{clearInterval(rep);rep=null;};
 $('ctl').querySelectorAll('button[data-act]').forEach(b=>{const f=ACT[b.dataset.act];
@@ -321,7 +321,7 @@ fig.addEventListener('pointerup',e=>{if(inUI(e)||!drag)return;const m=drag.moved
   if(best&&best.n.id===sel){startEdit(sel);return;}
   if(best)select(best.n.id);else sel=null;});
 fig.addEventListener('contextmenu',e=>e.preventDefault());
-fig.addEventListener('wheel',e=>{if(inUI(e))return;e.preventDefault();zoom=Math.max(0.3,Math.min(5,zoom*(e.deltaY<0?1.1:0.91)));},{passive:false});
+fig.addEventListener('wheel',e=>{if(inUI(e))return;e.preventDefault();{const z0=zoom,rc=cv.getBoundingClientRect(),mx=e.clientX-rc.left-cv.clientWidth/2,my=e.clientY-rc.top-cv.clientHeight/2;zoom=Math.max(0.3,Math.min(60,zoom*(e.deltaY<0?1.1:0.91)));const q=zoom/z0;pan=[mx-(mx-pan[0])*q,my-(my-pan[1])*q];}},{passive:false});
 $('dl').onclick=()=>{if(editing)endEdit(true);const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),a=document.createElement('a');
   a.href=URL.createObjectURL(b);a.download=(rootNode().name||'خريطة').replace(/[\\/:*?"<>|]/g,'-')+' '+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);status('نُزّلت نسخة احتياطية');};
@@ -381,7 +381,7 @@ function vrLabel(txt,big){const fs=big?60:46,c=document.createElement('canvas'),
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));const hm=big?0.045:0.032;s.scale.set(hm*w/h,hm,1);s.userData.h=hm;return s;}
 function buildVR(){
   const M=VR.map;[...M.children].forEach(o=>{M.remove(o);o.traverse(x=>{if(x.material){if(x.material.map)x.material.map.dispose();x.material.dispose();}});});
-  VR.picks=[];VR.bills=[];VR.hover=null;const K=1.2;list.forEach(t=>t.v=new THREE.Vector3(t.w[0]*K,t.w[1]*K,t.w[2]*K));
+  VR.picks=[];VR.bills=[];VR.hover=null;const K=0.05*SZ;list.forEach(t=>t.v=new THREE.Vector3(t.w[0]*K,t.w[1]*K,t.w[2]*K));{const o=list[0].v.clone().sub(new THREE.Vector3(0.5,0.2,0));list.forEach(t=>t.v.sub(o));}
   if(mode==='layers')list[0].ch.forEach(d=>{const sub=[];(function g(t){sub.push(t);t.ch.forEach(g);})(d);
     let a=[1e9,1e9],b=[-1e9,-1e9];sub.forEach(t=>{a[0]=Math.min(a[0],t.v.x);a[1]=Math.min(a[1],t.v.y);b[0]=Math.max(b[0],t.v.x);b[1]=Math.max(b[1],t.v.y);});
     const pd=0.12,pl=new THREE.Mesh(new THREE.PlaneGeometry(b[0]-a[0]+2*pd,b[1]-a[1]+2*pd),new THREE.MeshBasicMaterial({color:d.color,transparent:true,opacity:0.1,side:THREE.DoubleSide,depthWrite:false}));
@@ -395,7 +395,7 @@ function buildVR(){
     body.scale.setScalar(rr);body.position.copy(t.v);body.userData={id:n.id,r:rr};M.add(body);VR.picks.push(body);
     const sh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:col,side:THREE.BackSide}));sh.scale.setScalar(1.22);body.add(sh);
     if(n.date&&ms(n.date)<today&&!done){const ring=new THREE.Mesh(VR.G.ring,new THREE.MeshBasicMaterial({color:0xe24b4a}));body.add(ring);VR.bills.push(ring);}
-    const lb=vrLabel(n.name||'…',t.depth<2);lb.position.copy(t.v).add(new THREE.Vector3(0,rr*1.3+lb.userData.h/2+0.01,0));M.add(lb);});
+    const lb=vrLabel(n.name||'…',t.depth<2);lb.position.copy(t.v).add(new THREE.Vector3(-(lb.scale.x/2+rr*1.2),rr*0.5+lb.userData.h/2,0));M.add(lb);});
   VR.halo=new THREE.Mesh(VR.G.ring,new THREE.MeshBasicMaterial({color:0xffffff}));VR.halo.visible=false;M.add(VR.halo);
 }
 function drawPanel(){const c=VR.pc,x=c.getContext('2d'),W=c.width,H=c.height;x.clearRect(0,0,W,H);x.fillStyle='rgba(22,28,33,0.95)';rrect(x,0,0,W,H,36);x.fill();
